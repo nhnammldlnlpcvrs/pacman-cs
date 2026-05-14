@@ -243,7 +243,6 @@ public class GameEngine
         State = GameState.Playing;
         Pacman.SetPosition(14, 23);
         Pacman.CurrentDirection = Direction.None;
-        Pacman.NextDirection = Direction.None;
 
         Ghosts[0].SetPosition(12, 12); Ghosts[0].Mode = GhostMode.Scatter;
         Ghosts[1].SetPosition(14, 12); Ghosts[1].Mode = GhostMode.Scatter;
@@ -261,7 +260,6 @@ public class GameEngine
 
         Pacman.SetPosition(14, 23);
         Pacman.CurrentDirection = Direction.None;
-        Pacman.NextDirection = Direction.None;
         Pacman.Score = 0;
         Pacman.Lives = 3;
 

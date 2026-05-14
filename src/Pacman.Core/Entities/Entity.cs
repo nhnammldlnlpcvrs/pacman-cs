@@ -9,7 +9,6 @@ public abstract class Entity
     public float Y { get; set; }
     public float Speed { get; set; } = 150f;
     public Direction CurrentDirection { get; set; } = Direction.None;
-    public Direction NextDirection { get; set; } = Direction.None;
     public bool Visible { get; set; } = true;
 
     public int GridX => (int)Math.Round(X / MazeData.TileSize);

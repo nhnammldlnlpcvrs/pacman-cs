@@ -19,6 +19,8 @@ public class Ghost : Entity
     public int TargetGridX { get; set; }
     public int TargetGridY { get; set; }
 
+    private GameEngine? _engine;
+
     public Ghost(string id, string color, int scatterX, int scatterY)
     {
         Id = id;
@@ -27,6 +29,8 @@ public class Ghost : Entity
         ScatterTargetY = scatterY;
         Speed = 130f;
     }
+
+    public void SetEngine(GameEngine engine) => _engine = engine;
 
     public override void Update(float deltaTime)
     {
@@ -52,8 +56,6 @@ public class Ghost : Entity
 
     private void ChooseDirection()
     {
-        int targetX, targetY;
-
         if (Mode == GhostMode.Frightened)
         {
             var dirs = new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
@@ -63,35 +65,95 @@ public class Ghost : Entity
             return;
         }
 
-        targetX = Mode == GhostMode.Eyes ? 14 :
-                  Mode == GhostMode.Scatter ? ScatterTargetX :
-                  TargetGridX;
-        targetY = Mode == GhostMode.Eyes ? 14 :
-                  Mode == GhostMode.Scatter ? ScatterTargetY :
-                  TargetGridY;
-
-        var directions = new[] { Direction.Up, Direction.Left, Direction.Down, Direction.Right };
-        Direction bestDir = CurrentDirection;
-        double bestDist = double.MaxValue;
-
-        foreach (var dir in directions)
+        int targetX = Mode switch
         {
-            if (dir == CurrentDirection.Opposite()) continue;
-            if (!CanMoveInDirection(dir)) continue;
+            GhostMode.Eyes => 14,
+            GhostMode.Scatter => ScatterTargetX,
+            _ => GetChaseTargetX()
+        };
 
-            var (dx, dy) = dir.Delta();
-            int nx = GridX + dx;
-            int ny = GridY + dy;
-            double dist = (nx - targetX) * (nx - targetX) + (ny - targetY) * (ny - targetY);
+        int targetY = Mode switch
+        {
+            GhostMode.Eyes => 14,
+            GhostMode.Scatter => ScatterTargetY,
+            _ => GetChaseTargetY()
+        };
 
-            if (dist < bestDist)
-            {
-                bestDist = dist;
-                bestDir = dir;
-            }
-        }
+        Direction bestDir = Pathfinding.FindBestDirection(
+            GridX, GridY, targetX, targetY, CurrentDirection, true);
 
         CurrentDirection = bestDir;
+    }
+
+    // ── Chase personalities ──────────────────────────────
+
+    private int GetChaseTargetX() => Color switch
+    {
+        "red" => _engine?.Pacman.GridX ?? TargetGridX,
+        "pink" => GetPinkyTargetX(),
+        "blue" => GetInkyTargetX(),
+        "orange" => GetClydeTargetX(),
+        _ => _engine?.Pacman.GridX ?? TargetGridX
+    };
+
+    private int GetChaseTargetY() => Color switch
+    {
+        "red" => _engine?.Pacman.GridY ?? TargetGridY,
+        "pink" => GetPinkyTargetY(),
+        "blue" => GetInkyTargetY(),
+        "orange" => GetClydeTargetY(),
+        _ => _engine?.Pacman.GridY ?? TargetGridY
+    };
+
+    // Pinky: targets 4 tiles ahead of Pacman
+    private int GetPinkyTargetX()
+    {
+        var (dx, _) = _engine!.Pacman.CurrentDirection.Delta();
+        return _engine.Pacman.GridX + dx * 4;
+    }
+
+    private int GetPinkyTargetY()
+    {
+        var (_, dy) = _engine!.Pacman.CurrentDirection.Delta();
+        return _engine.Pacman.GridY + dy * 4;
+    }
+
+    // Inky: 2 * (pacman + 2 ahead) - Blinky position
+    private int GetInkyTargetX()
+    {
+        var p = _engine!.Pacman;
+        var blinky = _engine.Ghosts[0];
+        var (dx, _) = p.CurrentDirection.Delta();
+        int pivotX = p.GridX + dx * 2;
+        return pivotX + (pivotX - blinky.GridX);
+    }
+
+    private int GetInkyTargetY()
+    {
+        var p = _engine!.Pacman;
+        var blinky = _engine.Ghosts[0];
+        var (_, dy) = p.CurrentDirection.Delta();
+        int pivotY = p.GridY + dy * 2;
+        return pivotY + (pivotY - blinky.GridY);
+    }
+
+    // Clyde: chase if distance > 8 tiles, else scatter
+    private int GetClydeTargetX()
+    {
+        var p = _engine!.Pacman;
+        double dist = Math.Sqrt(
+            (GridX - p.GridX) * (GridX - p.GridX) +
+            (GridY - p.GridY) * (GridY - p.GridY));
+        return dist > 8 ? p.GridX : ScatterTargetX;
+    }
+
+    private int GetClydeTargetY()
+    {
+        var p = _engine!.Pacman;
+        double dist = Math.Sqrt(
+            (GridX - p.GridX) * (GridX - p.GridX) +
+            (GridY - p.GridY) * (GridY - p.GridY));
+        return dist > 8 ? p.GridY : ScatterTargetY;
     }
 
     protected override bool IsCellWalkable(int gridX, int gridY)

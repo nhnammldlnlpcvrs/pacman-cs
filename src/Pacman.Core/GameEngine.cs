@@ -74,6 +74,9 @@ public class GameEngine
         Ghosts[2].SetPosition(11, 12);
         Ghosts[3].SetPosition(17, 12);
 
+        foreach (var ghost in Ghosts)
+            ghost.SetEngine(this);
+
         CountPellets();
     }
 

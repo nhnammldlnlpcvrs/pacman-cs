@@ -129,6 +129,10 @@
         if (_engine.State != _lastState)
         {
             _lastState = _engine.State;
+            if (_engine.State == GameState.Playing)
+                _ = JS.InvokeVoidAsync("gameInterop.playMusic");
+            else if (_engine.State is GameState.GameOver or GameState.Win)
+                _ = JS.InvokeVoidAsync("gameInterop.stopMusic");
             StateHasChanged();
         }
 
@@ -160,6 +164,7 @@
     {
         _engine?.Restart();
         _lastState = GameState.Start;
+        _ = JS.InvokeVoidAsync("gameInterop.stopMusic");
         _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
     }
 

@@ -6,6 +6,7 @@ window.gameInterop = {
     audioCtx: null,
     musicInterval: null,
     shakeTimeout: null,
+    _wakaStep: false,
 
     // ── Init ──────────────────────────────────────────────
     init: function (dotNetRef) {
@@ -238,7 +239,8 @@ window.gameInterop = {
     playSound: function (name) {
         switch (name) {
             case 'eat':
-                this._beep(600, 0.06, 'square', 0.06);
+                this._wakaStep = !this._wakaStep;
+                this._beep(this._wakaStep ? 500 : 700, 0.05, 'square', 0.06);
                 break;
             case 'powerup':
                 this._sweep(200, 1200, 0.4, 'square', 0.08);
@@ -268,13 +270,14 @@ window.gameInterop = {
         if (!this.audioCtx || this.musicInterval) return;
         this.resumeAudio();
         var self = this;
-        var notes = [220, 277, 330, 277, 220, 247, 277, 330];
-        var step = 0;
+        var baseFreq = 220;
+        var sweepUp = true;
         this.musicInterval = setInterval(function () {
             if (!self.musicInterval) return;
-            self._beep(notes[step % notes.length], 0.12, 'triangle', 0.03);
-            step++;
-        }, 180);
+            var freq = sweepUp ? baseFreq + 20 : baseFreq - 20;
+            self._beep(freq, 0.15, 'square', 0.025);
+            sweepUp = !sweepUp;
+        }, 150);
     },
 
     stopMusic: function () {

@@ -1,0 +1,125 @@
+@page "/"
+@using Pacman.Core
+@using Pacman.Core.Enums
+@using Pacman.Core.Entities
+@implements IDisposable
+@inject IJSRuntime JS
+
+<div class="game-wrapper" @onkeydown="HandleKeyDown" @onkeydown:preventDefault tabindex="0">
+    <div class="game-header">
+        <div class="score">SCORE: <span>@_engine?.Pacman.Score</span></div>
+        <div class="state-text">@GetStateText()</div>
+        <div class="lives">LIVES: <span>@_engine?.Pacman.Lives</span></div>
+    </div>
+
+    <div class="game-board" style="width: @(MazeData.Width * 24)px; height: @(MazeData.Height * 24)px;">
+        <div class="maze-grid" style="grid-template-columns: repeat(@MazeData.Width, 24px); grid-template-rows: repeat(@MazeData.Height, 24px);">
+            @for (int y = 0; y < MazeData.Height; y++)
+            {
+                for (int x = 0; x < MazeData.Width; x++)
+                {
+                    int cell = MazeData.Grid[y, x];
+                    string cls = cell switch
+                    {
+                        1 => "maze-cell wall",
+                        0 => "maze-cell pellet",
+                        2 => "maze-cell power-pellet",
+                        _ => "maze-cell empty"
+                    };
+                    <div class="@cls" data-x="@x" data-y="@y"></div>
+                }
+            }
+        </div>
+
+        <img id="pacman" class="entity" src="imgs/pacmanRight.png"
+             style="transform: translate(@(14 * 24)px, @(23 * 24)px);" />
+        <img id="ghost-red" class="entity" src="imgs/redGhost.png"
+             style="transform: translate(@(12 * 24)px, @(12 * 24)px);" />
+        <img id="ghost-pink" class="entity" src="imgs/pinkGhost.png"
+             style="transform: translate(@(14 * 24)px, @(12 * 24)px);" />
+        <img id="ghost-blue" class="entity" src="imgs/blueGhost.png"
+             style="transform: translate(@(11 * 24)px, @(12 * 24)px);" />
+        <img id="ghost-orange" class="entity" src="imgs/orangeGhost.png"
+             style="transform: translate(@(17 * 24)px, @(12 * 24)px);" />
+    </div>
+
+    @if (_engine?.State == GameState.GameOver)
+    {
+        <div class="overlay">GAME OVER</div>
+    }
+    else if (_engine?.State == GameState.Win)
+    {
+        <div class="overlay">YOU WIN!</div>
+    }
+    else if (_engine?.State == GameState.Start)
+    {
+        <div class="overlay">PRESS ARROW KEY TO START</div>
+    }
+</div>
+
+@code {
+    private GameEngine? _engine;
+    private DotNetObjectReference<Index>? _dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        _engine = new GameEngine();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("gameInterop.init", _dotNetRef);
+            await JS.InvokeVoidAsync("gameInterop.startLoop");
+            await JS.InvokeVoidAsync("eval", "document.querySelector('.game-wrapper').focus()");
+        }
+    }
+
+    [JSInvokable]
+    public List<EntityState> GameLoop(double deltaTime)
+    {
+        if (_engine == null) return new();
+        var states = _engine.Update(deltaTime);
+
+        if (_engine.State == GameState.Playing || _engine.State == GameState.Frightened)
+        {
+            var mazeJson = System.Text.Json.JsonSerializer.Serialize(_engine.GetMaze());
+            _ = JS.InvokeVoidAsync("gameInterop.updatePellets", mazeJson);
+        }
+
+        StateHasChanged();
+        return states;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        var dir = e.Key switch
+        {
+            "ArrowUp" or "w" or "W" => Direction.Up,
+            "ArrowDown" or "s" or "S" => Direction.Down,
+            "ArrowLeft" or "a" or "A" => Direction.Left,
+            "ArrowRight" or "d" or "D" => Direction.Right,
+            _ => Direction.None
+        };
+
+        if (dir != Direction.None)
+            _engine?.HandleInput(dir);
+    }
+
+    private string GetStateText() => _engine?.State switch
+    {
+        GameState.Start => "READY!",
+        GameState.Frightened => "FRIGHTENED!",
+        GameState.GameOver => "GAME OVER",
+        GameState.Win => "YOU WIN!",
+        _ => ""
+    };
+
+    public void Dispose()
+    {
+        _ = JS.InvokeVoidAsync("gameInterop.stopLoop");
+        _dotNetRef?.Dispose();
+    }
+}

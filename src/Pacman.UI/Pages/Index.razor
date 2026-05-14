@@ -5,7 +5,9 @@
 @implements IDisposable
 @inject IJSRuntime JS
 
-<div class="game-wrapper" @onkeydown="HandleKeyDown" @onkeydown:preventDefault tabindex="0">
+<div class="game-wrapper" @onkeydown="HandleKeyDown" @onkeydown:preventDefault="true"
+     @onclick="HandleClick" @onclick:stopPropagation="true"
+     tabindex="0" autofocus>
     <div class="game-header">
         <div class="score">SCORE: <span>@_engine?.Pacman.Score</span></div>
         <div class="state-text">@GetStateText()</div>
@@ -73,7 +75,7 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("gameInterop.init", _dotNetRef);
             await JS.InvokeVoidAsync("gameInterop.startLoop");
-            await JS.InvokeVoidAsync("eval", "document.querySelector('.game-wrapper').focus()");
+            await JS.InvokeVoidAsync("gameInterop.focusGame");
         }
     }
 
@@ -82,6 +84,12 @@
     {
         if (_engine == null) return new();
         var states = _engine.Update(deltaTime);
+
+        var sounds = _engine.FlushSoundEvents();
+        foreach (var sound in sounds)
+        {
+            _ = JS.InvokeVoidAsync("gameInterop.playSound", sound);
+        }
 
         if (_engine.State == GameState.Playing || _engine.State == GameState.Frightened)
         {
@@ -105,7 +113,16 @@
         };
 
         if (dir != Direction.None)
+        {
+            _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
             _engine?.HandleInput(dir);
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        await JS.InvokeVoidAsync("gameInterop.focusGame");
+        await JS.InvokeVoidAsync("gameInterop.resumeAudio");
     }
 
     private string GetStateText() => _engine?.State switch

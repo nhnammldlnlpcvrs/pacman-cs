@@ -34,6 +34,16 @@ public class GameEngine
 
     private double _frightenedTimer;
     private const double FrightenedDuration = 7.0;
+    private readonly List<string> _soundEvents = new();
+
+    public List<string> FlushSoundEvents()
+    {
+        var copy = new List<string>(_soundEvents);
+        _soundEvents.Clear();
+        return copy;
+    }
+
+    private void EmitSound(string name) => _soundEvents.Add(name);
 
     public GameEngine()
     {
@@ -70,7 +80,10 @@ public class GameEngine
     public void Start()
     {
         if (State == GameState.Start)
+        {
             State = GameState.Playing;
+            EmitSound("start");
+        }
     }
 
     public void HandleInput(Direction dir)
@@ -133,12 +146,14 @@ public class GameEngine
             _mazeCopy[gy, gx] = 3;
             PelletsRemaining--;
             Pacman.Score += 10;
+            EmitSound("eat");
         }
         else if (cell == 2)
         {
             _mazeCopy[gy, gx] = 3;
             PelletsRemaining--;
             Pacman.Score += 50;
+            EmitSound("powerup");
             ActivatePowerPellet();
         }
     }
@@ -180,10 +195,12 @@ public class GameEngine
                     };
                     Pacman.Score += points;
                     ghost.Mode = GhostMode.Eyes;
+                    EmitSound("ghostEat");
                 }
                 else if (ghost.Mode != GhostMode.Eyes)
                 {
                     Pacman.Lives--;
+                    EmitSound("death");
                     if (Pacman.Lives <= 0)
                         State = GameState.GameOver;
                     else

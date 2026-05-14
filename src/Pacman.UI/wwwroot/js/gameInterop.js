@@ -30,10 +30,10 @@ window.gameInterop = {
         window.addEventListener('keydown', function (e) {
             var dir = 0;
             switch (e.key) {
-                case 'w': case 'W': dir = 1; break; // Up
-                case 's': case 'S': dir = 2; break; // Down
-                case 'a': case 'A': dir = 3; break; // Left
-                case 'd': case 'D': dir = 4; break; // Right
+                case 'w': case 'W': case 'ArrowUp':    dir = 1; break;
+                case 's': case 'S': case 'ArrowDown':  dir = 2; break;
+                case 'a': case 'A': case 'ArrowLeft':  dir = 3; break;
+                case 'd': case 'D': case 'ArrowRight': dir = 4; break;
             }
             if (dir !== 0 && self.dotNetRef) {
                 e.preventDefault();

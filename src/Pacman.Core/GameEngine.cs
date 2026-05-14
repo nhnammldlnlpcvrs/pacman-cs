@@ -117,7 +117,20 @@ public class GameEngine
             _shakeTimer -= deltaTime;
 
         if (!IsRunning)
+        {
+            if (State == GameState.Dying)
+            {
+                _dyingTimer -= deltaTime;
+                if (_dyingTimer <= 0)
+                {
+                    if (Pacman.Lives <= 0)
+                        State = GameState.GameOver;
+                    else
+                        ResetPositions();
+                }
+            }
             return GetEntityStates();
+        }
 
         if (State == GameState.Frightened)
         {
@@ -246,13 +259,11 @@ public class GameEngine
                 }
                 else if (ghost.Mode != GhostMode.Eyes)
                 {
-                    Pacman.Lives--;
+                    State = GameState.Dying;
+                    _dyingTimer = 1.5;
                     EmitSound("death");
                     _shakeTimer = 0.5;
-                    if (Pacman.Lives <= 0)
-                        State = GameState.GameOver;
-                    else
-                        ResetPositions();
+                    Pacman.Lives--;
                     return;
                 }
             }
@@ -278,6 +289,7 @@ public class GameEngine
         GhostCombo = 0;
         _modeTimer = ScatterDuration;
         _isScatterPhase = true;
+        _dyingTimer = 0;
     }
 
     public int[,] GetMaze() => _mazeCopy;

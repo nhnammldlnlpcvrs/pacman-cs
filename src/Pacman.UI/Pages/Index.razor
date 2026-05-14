@@ -5,58 +5,82 @@
 @implements IDisposable
 @inject IJSRuntime JS
 
-<div class="game-wrapper" @onkeydown="HandleKeyDown" @onkeydown:preventDefault="true"
+<div class="game-frame" @onkeydown="HandleKeyDown" @onkeydown:preventDefault="true"
      @onclick="HandleClick" @onclick:stopPropagation="true"
      tabindex="0" autofocus>
     <div class="game-header">
-        <div class="score">SCORE: <span>@_engine?.Pacman.Score</span></div>
-        <div class="state-text">@GetStateText()</div>
-        <div class="lives">LIVES: <span>@_engine?.Pacman.Lives</span></div>
+        <div class="hud-item">
+            <span class="hud-label">Score</span>
+            <span class="hud-value score-val">@(_engine?.Pacman.Score ?? 0)</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">State</span>
+            <span class="hud-value state-val">@GetStateText()</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">Lives</span>
+            <span class="hud-value lives-val">@(_engine?.Pacman.Lives ?? 0)</span>
+        </div>
     </div>
 
     <div class="game-board" style="width: @(MazeData.Width * 24)px; height: @(MazeData.Height * 24)px;">
         <div class="maze-grid" style="grid-template-columns: repeat(@MazeData.Width, 24px); grid-template-rows: repeat(@MazeData.Height, 24px);">
-            @for (int y = 0; y < MazeData.Height; y++)
-            {
-                for (int x = 0; x < MazeData.Width; x++)
+            @{
+                var maze = _engine?.GetMaze() ?? MazeData.Grid;
+                for (int y = 0; y < MazeData.Height; y++)
                 {
-                    int cell = MazeData.Grid[y, x];
-                    string cls = cell switch
+                    for (int x = 0; x < MazeData.Width; x++)
                     {
-                        1 => "maze-cell wall",
-                        0 => "maze-cell pellet",
-                        2 => "maze-cell power-pellet",
-                        _ => "maze-cell empty"
-                    };
-                    <div class="@cls" data-x="@x" data-y="@y"></div>
+                        int cell = maze[y, x];
+                        string cls = cell switch
+                        {
+                            1 => "maze-cell wall",
+                            0 => "maze-cell pellet",
+                            2 => "maze-cell power-pellet",
+                            _ => "maze-cell empty"
+                        };
+                        <div class="@cls" data-x="@x" data-y="@y"></div>
+                    }
                 }
             }
         </div>
 
         <img id="pacman" class="entity" src="imgs/pacmanRight.png"
              style="transform: translate(@(14 * 24)px, @(23 * 24)px);" />
-        <img id="ghost-red" class="entity" src="imgs/redGhost.png"
+        <img id="ghost-red" class="entity ghost-float" src="imgs/redGhost.png"
              style="transform: translate(@(12 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-pink" class="entity" src="imgs/pinkGhost.png"
+        <img id="ghost-pink" class="entity ghost-float" src="imgs/pinkGhost.png"
              style="transform: translate(@(14 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-blue" class="entity" src="imgs/blueGhost.png"
+        <img id="ghost-blue" class="entity ghost-float" src="imgs/blueGhost.png"
              style="transform: translate(@(11 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-orange" class="entity" src="imgs/orangeGhost.png"
+        <img id="ghost-orange" class="entity ghost-float" src="imgs/orangeGhost.png"
              style="transform: translate(@(17 * 24)px, @(12 * 24)px);" />
-    </div>
 
-    @if (_engine?.State == GameState.GameOver)
-    {
-        <div class="overlay">GAME OVER</div>
-    }
-    else if (_engine?.State == GameState.Win)
-    {
-        <div class="overlay">YOU WIN!</div>
-    }
-    else if (_engine?.State == GameState.Start)
-    {
-        <div class="overlay">PRESS ARROW KEY TO START</div>
-    }
+        @if (_engine?.State == GameState.Start)
+        {
+            <div class="overlay">
+                <div class="overlay-title">PAC-MAN</div>
+                <div class="overlay-subtitle">NEON EDITION</div>
+                <button class="btn-neon" @onclick="StartGame" @onclick:stopPropagation="true">START GAME</button>
+            </div>
+        }
+        else if (_engine?.State == GameState.GameOver)
+        {
+            <div class="overlay game-over">
+                <div class="overlay-title">GAME OVER</div>
+                <div class="final-score">FINAL SCORE: @_engine?.Pacman.Score</div>
+                <button class="btn-neon" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
+            </div>
+        }
+        else if (_engine?.State == GameState.Win)
+        {
+            <div class="overlay win">
+                <div class="overlay-title">YOU WIN!</div>
+                <div class="final-score">FINAL SCORE: @_engine?.Pacman.Score</div>
+                <button class="btn-neon" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
+            </div>
+        }
+    </div>
 </div>
 
 @code {
@@ -87,9 +111,7 @@
 
         var sounds = _engine.FlushSoundEvents();
         foreach (var sound in sounds)
-        {
             _ = JS.InvokeVoidAsync("gameInterop.playSound", sound);
-        }
 
         if (_engine.State == GameState.Playing || _engine.State == GameState.Frightened)
         {
@@ -113,16 +135,32 @@
         };
 
         if (dir != Direction.None)
-        {
-            _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
-            _engine?.HandleInput(dir);
-        }
+            HandleDirection((int)dir);
+    }
+
+    [JSInvokable]
+    public void HandleDirection(int dir)
+    {
+        _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
+        _engine?.HandleInput((Direction)dir);
     }
 
     private async Task HandleClick()
     {
         await JS.InvokeVoidAsync("gameInterop.focusGame");
         await JS.InvokeVoidAsync("gameInterop.resumeAudio");
+    }
+
+    private void StartGame()
+    {
+        _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
+        _engine?.Start();
+    }
+
+    private void RestartGame()
+    {
+        _engine?.Restart();
+        _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
     }
 
     private string GetStateText() => _engine?.State switch

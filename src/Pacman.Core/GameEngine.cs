@@ -21,6 +21,8 @@ public class EntityState
     public float Y { get; set; }
     public string Sprite { get; set; } = "";
     public bool Visible { get; set; } = true;
+    public bool IsMouthOpen { get; set; }
+    public bool IsGhost { get; set; }
 }
 
 public class GameEngine
@@ -34,6 +36,8 @@ public class GameEngine
 
     private double _frightenedTimer;
     private const double FrightenedDuration = 7.0;
+    private double _mouthTimer;
+    private bool _isMouthOpen;
     private readonly List<string> _soundEvents = new();
 
     public List<string> FlushSoundEvents()
@@ -112,6 +116,14 @@ public class GameEngine
         }
 
         Pacman.Update((float)deltaTime);
+
+        _mouthTimer -= deltaTime;
+        if (_mouthTimer <= 0)
+        {
+            _isMouthOpen = Pacman.CurrentDirection != Direction.None && !_isMouthOpen;
+            _mouthTimer = 0.12;
+        }
+
         EatPellets();
 
         foreach (var ghost in Ghosts)
@@ -233,11 +245,34 @@ public class GameEngine
 
     public int[,] GetMaze() => _mazeCopy;
 
+    public void Restart()
+    {
+        Array.Copy(MazeData.Grid, _mazeCopy, MazeData.Grid.Length);
+        CountPellets();
+
+        Pacman.SetPosition(14, 23);
+        Pacman.CurrentDirection = Direction.None;
+        Pacman.NextDirection = Direction.None;
+        Pacman.Score = 0;
+        Pacman.Lives = 3;
+
+        Ghosts[0].SetPosition(12, 12); Ghosts[0].Mode = GhostMode.Scatter;
+        Ghosts[1].SetPosition(14, 12); Ghosts[1].Mode = GhostMode.Scatter;
+        Ghosts[2].SetPosition(11, 12); Ghosts[2].Mode = GhostMode.Scatter;
+        Ghosts[3].SetPosition(17, 12); Ghosts[3].Mode = GhostMode.Scatter;
+
+        GhostCombo = 0;
+        _frightenedTimer = 0;
+        _mouthTimer = 0;
+        _isMouthOpen = false;
+        State = GameState.Start;
+    }
+
     private List<EntityState> GetEntityStates()
     {
         var states = new List<EntityState>
         {
-            new() { Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y, Sprite = Pacman.GetSprite(), Visible = true }
+            new() { Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y, Sprite = Pacman.GetSprite(), Visible = true, IsMouthOpen = _isMouthOpen, IsGhost = false }
         };
 
         foreach (var ghost in Ghosts)
@@ -245,7 +280,7 @@ public class GameEngine
             states.Add(new EntityState
             {
                 Id = ghost.Id, X = ghost.X, Y = ghost.Y,
-                Sprite = ghost.GetSprite(), Visible = true
+                Sprite = ghost.GetSprite(), Visible = true, IsGhost = true
             });
         }
 

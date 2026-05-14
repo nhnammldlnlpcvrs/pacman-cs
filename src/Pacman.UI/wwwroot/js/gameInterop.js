@@ -12,6 +12,7 @@ window.gameInterop = {
         this.lastTime = performance.now();
         this.cacheEntities();
         this.initAudio();
+        this.initKeyboard();
     },
 
     cacheEntities: function () {
@@ -19,6 +20,24 @@ window.gameInterop = {
         elements.forEach(function (el) {
             this.entities[el.id] = el;
         }.bind(this));
+    },
+
+    // ── Keyboard (backup for Blazor @onkeydown) ───────────
+    initKeyboard: function () {
+        var self = this;
+        document.addEventListener('keydown', function (e) {
+            var dir = 0;
+            switch (e.key) {
+                case 'ArrowUp':    case 'w': case 'W': dir = 1; break;
+                case 'ArrowDown':  case 's': case 'S': dir = 2; break;
+                case 'ArrowLeft':  case 'a': case 'A': dir = 3; break;
+                case 'ArrowRight': case 'd': case 'D': dir = 4; break;
+            }
+            if (dir !== 0 && self.dotNetRef) {
+                e.preventDefault();
+                self.dotNetRef.invokeMethodAsync('HandleDirection', dir);
+            }
+        });
     },
 
     // ── Game Loop ─────────────────────────────────────────
@@ -57,7 +76,7 @@ window.gameInterop = {
     },
 
     focusGame: function () {
-        var el = document.querySelector('.game-wrapper');
+        var el = document.querySelector('.game-frame');
         if (el) el.focus();
     },
 
@@ -75,6 +94,22 @@ window.gameInterop = {
 
         if (state.sprite && el.src.indexOf(state.sprite) === -1) {
             el.src = state.sprite;
+        }
+
+        // Mouth animation for Pacman
+        if (state.id === 'pacman') {
+            if (state.isMouthOpen) {
+                el.classList.add('mouth-open');
+                el.classList.remove('mouth-closed');
+            } else {
+                el.classList.add('mouth-closed');
+                el.classList.remove('mouth-open');
+            }
+        }
+
+        // Ghost floating — add class if not already present
+        if (state.isGhost && !el.classList.contains('ghost-float')) {
+            el.classList.add('ghost-float');
         }
     },
 

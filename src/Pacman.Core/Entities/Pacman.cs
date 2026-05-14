@@ -6,8 +6,10 @@ public class Pacman : Entity
 {
     public int Lives { get; set; } = 3;
     public int Score { get; set; } = 0;
+
     private readonly Queue<Direction> _inputBuffer = new();
     private const int MaxBufferSize = 3;
+    private Direction _lastBuffered;
 
     public Pacman()
     {
@@ -19,38 +21,48 @@ public class Pacman : Entity
     {
         if (input == Direction.None) return;
 
-        Direction lastQueued = _inputBuffer.Count > 0
-            ? _inputBuffer.Last()
+        // Determine what to compare against to avoid duplicates
+        Direction compareTo = _inputBuffer.Count > 0
+            ? _lastBuffered
             : CurrentDirection;
 
-        if (input != lastQueued && _inputBuffer.Count < MaxBufferSize)
-            _inputBuffer.Enqueue(input);
+        if (input == compareTo) return;
+        if (_inputBuffer.Count >= MaxBufferSize) return;
+
+        _inputBuffer.Enqueue(input);
+        _lastBuffered = input;
     }
 
     public override void Update(float deltaTime)
     {
         if (IsAtTileCenter)
         {
-            while (_inputBuffer.Count > 0)
+            // Consume buffered input — apply first valid direction
+            int tries = _inputBuffer.Count;
+            while (tries > 0)
             {
+                tries--;
                 Direction next = _inputBuffer.Peek();
+
                 if (CanMoveInDirection(next))
                 {
                     CurrentDirection = next;
                     _inputBuffer.Dequeue();
                     break;
                 }
-                else
+
+                // Discard stale directions (same as current or opposite)
+                if (next == CurrentDirection || next == CurrentDirection.Opposite())
                 {
-                    if (next == CurrentDirection || next == CurrentDirection.Opposite())
-                    {
-                        _inputBuffer.Dequeue();
-                        continue;
-                    }
-                    break;
+                    _inputBuffer.Dequeue();
+                    continue;
                 }
+
+                // Direction not valid yet — keep in buffer, stop trying
+                break;
             }
 
+            // Stop if current direction is blocked
             if (CurrentDirection != Direction.None && !CanMoveInDirection(CurrentDirection))
             {
                 CurrentDirection = Direction.None;
@@ -59,12 +71,19 @@ public class Pacman : Entity
             SnapToTileCenter();
         }
 
+        // Execute movement
         base.Update(deltaTime);
 
-        // Tunnel wrapping
+        // Tunnel wrapping — teleport from one side to the other
         float maxX = MazeData.Width * MazeData.TileSize;
         if (X < -MazeData.TileSize) X = maxX;
-        if (X > maxX) X = -MazeData.TileSize;
+        else if (X > maxX) X = -MazeData.TileSize;
+    }
+
+    public void ClearInputBuffer()
+    {
+        _inputBuffer.Clear();
+        _lastBuffered = Direction.None;
     }
 
     public string GetSprite()

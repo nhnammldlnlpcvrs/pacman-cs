@@ -181,11 +181,15 @@ body {
 }
 
 .pacman-sprite.mouth-open {
-    clip-path: polygon(50% 50%, 100% 8%, 100% 92%);
+    clip-path: polygon(
+        0% 0%, 100% 0%, 100% 18%,
+        50% 50%,
+        100% 82%, 100% 100%, 0% 100%
+    );
 }
 
 .pacman-sprite.mouth-closed {
-    clip-path: polygon(50% 50%, 100% 47%, 100% 53%);
+    clip-path: circle(50%);
 }
 
 /* Ghost base shape — classic Pacman ghost silhouette */

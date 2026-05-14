@@ -36,6 +36,7 @@ public class GameEngine
     public int PelletsRemaining { get; private set; }
     public int GhostCombo { get; set; }
 
+    // Timers
     private double _frightenedTimer;
     private const double FrightenedDuration = 7.0;
     private double _modeTimer;
@@ -46,9 +47,13 @@ public class GameEngine
     private bool _isMouthOpen;
     private double _shakeTimer;
     private double _dyingTimer;
+    private const double DyingDuration = 1.5;
     private readonly List<string> _soundEvents = new();
 
-    public bool IsRunning => State == GameState.Playing || State == GameState.Frightened;
+    // Maximum deltaTime to prevent huge jumps (e.g. when tab is backgrounded)
+    private const double MaxDeltaTime = 0.1;
+
+    public bool IsRunning => State is GameState.Playing or GameState.Frightened;
 
     public List<string> FlushSoundEvents()
     {
@@ -97,25 +102,37 @@ public class GameEngine
 
     public void Start()
     {
-        if (State == GameState.Start)
-        {
-            State = GameState.Playing;
-            EmitSound("start");
-        }
+        if (State != GameState.Start) return;
+        State = GameState.Playing;
+        EmitSound("start");
     }
 
     public void HandleInput(Direction dir)
     {
+        if (dir == Direction.None) return;
+
+        // Start game on first input
         if (State == GameState.Start)
             Start();
-        Pacman.HandleInput(dir);
+
+        // Only accept input during active gameplay
+        if (IsRunning)
+            Pacman.HandleInput(dir);
     }
 
     public List<EntityState> Update(double deltaTime)
     {
+        // Clamp deltaTime to avoid physics jumps
+        if (deltaTime > MaxDeltaTime)
+            deltaTime = MaxDeltaTime;
+        if (deltaTime <= 0)
+            return GetEntityStates();
+
+        // Update screen shake timer
         if (_shakeTimer > 0)
             _shakeTimer -= deltaTime;
 
+        // ── Non-running states ──────────────────────────
         if (!IsRunning)
         {
             if (State == GameState.Dying)
@@ -132,6 +149,7 @@ public class GameEngine
             return GetEntityStates();
         }
 
+        // ── Frightened timer ────────────────────────────
         if (State == GameState.Frightened)
         {
             _frightenedTimer -= deltaTime;
@@ -140,13 +158,19 @@ public class GameEngine
                 State = GameState.Playing;
                 GhostCombo = 0;
                 foreach (var g in Ghosts)
+                {
                     if (g.Mode == GhostMode.Frightened)
-                        g.Mode = GhostMode.Scatter;
+                    {
+                        g.Mode = _isScatterPhase ? GhostMode.Scatter : GhostMode.Chase;
+                    }
+                }
             }
         }
 
+        // ── Player movement ─────────────────────────────
         Pacman.Update((float)deltaTime);
 
+        // ── Mouth animation ─────────────────────────────
         _mouthTimer -= deltaTime;
         if (_mouthTimer <= 0)
         {
@@ -154,11 +178,14 @@ public class GameEngine
             _mouthTimer = 0.12;
         }
 
+        // ── Pellet collection ───────────────────────────
         EatPellets();
 
+        // ── Scatter/Chase cycle (only during normal play) ──
         if (State == GameState.Playing)
             UpdateModeTimer(deltaTime);
 
+        // ── Ghost updates ───────────────────────────────
         foreach (var ghost in Ghosts)
         {
             ghost.TargetGridX = Pacman.GridX;
@@ -166,13 +193,19 @@ public class GameEngine
             ghost.Update((float)deltaTime);
         }
 
+        // ── Collision detection ─────────────────────────
         CheckGhostCollisions();
 
+        // ── Win condition ───────────────────────────────
         if (PelletsRemaining <= 0)
             State = GameState.Win;
 
         return GetEntityStates();
     }
+
+    // ═══════════════════════════════════════════════════════
+    //  Pellet System
+    // ═══════════════════════════════════════════════════════
 
     private void EatPellets()
     {
@@ -183,22 +216,41 @@ public class GameEngine
             return;
 
         int cell = _mazeCopy[gy, gx];
-        if (cell == 0)
+        switch (cell)
         {
-            _mazeCopy[gy, gx] = 3;
-            PelletsRemaining--;
-            Pacman.Score += 10;
-            EmitSound("eat");
-        }
-        else if (cell == 2)
-        {
-            _mazeCopy[gy, gx] = 3;
-            PelletsRemaining--;
-            Pacman.Score += 50;
-            EmitSound("powerup");
-            ActivatePowerPellet();
+            case 0: // Regular pellet
+                _mazeCopy[gy, gx] = 3;
+                PelletsRemaining--;
+                Pacman.Score += 10;
+                EmitSound("eat");
+                break;
+
+            case 2: // Power pellet
+                _mazeCopy[gy, gx] = 3;
+                PelletsRemaining--;
+                Pacman.Score += 50;
+                EmitSound("powerup");
+                ActivatePowerPellet();
+                break;
         }
     }
+
+    private void ActivatePowerPellet()
+    {
+        State = GameState.Frightened;
+        _frightenedTimer = FrightenedDuration;
+        GhostCombo = 0;
+        foreach (var ghost in Ghosts)
+        {
+            if (ghost.Mode == GhostMode.Eyes) continue;
+            ghost.Mode = GhostMode.Frightened;
+            ghost.CurrentDirection = ghost.CurrentDirection.Opposite();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  Scatter / Chase Mode Timer
+    // ═══════════════════════════════════════════════════════
 
     private void UpdateModeTimer(double deltaTime)
     {
@@ -210,44 +262,32 @@ public class GameEngine
 
         foreach (var ghost in Ghosts)
         {
-            if (ghost.Mode == GhostMode.Frightened || ghost.Mode == GhostMode.Eyes)
-                continue;
+            if (ghost.Mode is GhostMode.Frightened or GhostMode.Eyes) continue;
 
             ghost.Mode = _isScatterPhase ? GhostMode.Scatter : GhostMode.Chase;
             ghost.CurrentDirection = ghost.CurrentDirection.Opposite();
         }
     }
 
-    private void ActivatePowerPellet()
-    {
-        State = GameState.Frightened;
-        _frightenedTimer = FrightenedDuration;
-        GhostCombo = 0;
-        foreach (var ghost in Ghosts)
-        {
-            if (ghost.Mode != GhostMode.Eyes)
-            {
-                ghost.Mode = GhostMode.Frightened;
-                ghost.CurrentDirection = ghost.CurrentDirection.Opposite();
-            }
-        }
-    }
+    // ═══════════════════════════════════════════════════════
+    //  Ghost Collision
+    // ═══════════════════════════════════════════════════════
 
     private void CheckGhostCollisions()
     {
-        float hitDist = MazeData.TileSize * 0.7f;
+        float hitDist = MazeData.TileSize * 0.65f;
 
         foreach (var ghost in Ghosts)
         {
-            float dist = MathF.Sqrt(
-                (Pacman.X - ghost.X) * (Pacman.X - ghost.X) +
-                (Pacman.Y - ghost.Y) * (Pacman.Y - ghost.Y)
-            );
+            float dx = Pacman.X - ghost.X;
+            float dy = Pacman.Y - ghost.Y;
+            float distSq = dx * dx + dy * dy;
 
-            if (dist < hitDist)
+            if (distSq >= hitDist * hitDist) continue;
+
+            switch (ghost.Mode)
             {
-                if (ghost.Mode == GhostMode.Frightened)
-                {
+                case GhostMode.Frightened:
                     GhostCombo++;
                     int points = GhostCombo switch
                     {
@@ -256,40 +296,58 @@ public class GameEngine
                     Pacman.Score += points;
                     ghost.Mode = GhostMode.Eyes;
                     EmitSound("ghostEat");
-                }
-                else if (ghost.Mode != GhostMode.Eyes)
-                {
+                    break;
+
+                case GhostMode.Eyes:
+                    // Ghost is returning to house — no collision
+                    break;
+
+                default:
+                    // Player dies
                     State = GameState.Dying;
-                    _dyingTimer = 1.5;
+                    _dyingTimer = DyingDuration;
+                    Pacman.Lives--;
+                    Pacman.CurrentDirection = Direction.None;
+                    Pacman.ClearInputBuffer();
+                    _isMouthOpen = false;
                     EmitSound("death");
                     _shakeTimer = 0.5;
-                    Pacman.Lives--;
                     return;
-                }
             }
         }
 
+        // Check if eyes-mode ghosts have reached the ghost house
         foreach (var ghost in Ghosts)
         {
             if (ghost.Mode == GhostMode.Eyes && ghost.GridX == 14 && ghost.GridY == 14)
-                ghost.Mode = GhostMode.Scatter;
+            {
+                ghost.Mode = _isScatterPhase ? GhostMode.Scatter : GhostMode.Chase;
+            }
         }
     }
+
+    // ═══════════════════════════════════════════════════════
+    //  Reset & Restart
+    // ═══════════════════════════════════════════════════════
 
     private void ResetPositions()
     {
         State = GameState.Playing;
         Pacman.SetPosition(14, 23);
         Pacman.CurrentDirection = Direction.None;
+        Pacman.ClearInputBuffer();
 
         Ghosts[0].SetPosition(12, 12); Ghosts[0].Mode = GhostMode.Scatter;
         Ghosts[1].SetPosition(14, 12); Ghosts[1].Mode = GhostMode.Scatter;
         Ghosts[2].SetPosition(11, 12); Ghosts[2].Mode = GhostMode.Scatter;
         Ghosts[3].SetPosition(17, 12); Ghosts[3].Mode = GhostMode.Scatter;
+
         GhostCombo = 0;
         _modeTimer = ScatterDuration;
         _isScatterPhase = true;
         _dyingTimer = 0;
+        _isMouthOpen = false;
+        _mouthTimer = 0;
     }
 
     public int[,] GetMaze() => _mazeCopy;
@@ -301,6 +359,7 @@ public class GameEngine
 
         Pacman.SetPosition(14, 23);
         Pacman.CurrentDirection = Direction.None;
+        Pacman.ClearInputBuffer();
         Pacman.Score = 0;
         Pacman.Lives = 3;
 
@@ -320,12 +379,22 @@ public class GameEngine
         State = GameState.Start;
     }
 
+    // ═══════════════════════════════════════════════════════
+    //  Entity State Serialization
+    // ═══════════════════════════════════════════════════════
+
     private List<EntityState> GetEntityStates()
     {
         bool shaking = _shakeTimer > 0;
-        var states = new List<EntityState>
+        var states = new List<EntityState>(5)
         {
-            new() { Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y, Sprite = Pacman.GetSprite(), Visible = true, IsMouthOpen = _isMouthOpen, IsGhost = false, Facing = (int)Pacman.CurrentDirection, ScreenShake = shaking }
+            new()
+            {
+                Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y,
+                Sprite = Pacman.GetSprite(), Visible = true,
+                IsMouthOpen = _isMouthOpen, IsGhost = false,
+                Facing = (int)Pacman.CurrentDirection, ScreenShake = shaking
+            }
         };
 
         foreach (var ghost in Ghosts)
@@ -333,7 +402,8 @@ public class GameEngine
             states.Add(new EntityState
             {
                 Id = ghost.Id, X = ghost.X, Y = ghost.Y,
-                Sprite = ghost.GetSprite(), Visible = true, IsGhost = true, Facing = 0, ScreenShake = shaking
+                Sprite = ghost.GetSprite(), Visible = true,
+                IsGhost = true, Facing = 0, ScreenShake = shaking
             });
         }
 

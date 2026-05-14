@@ -23,6 +23,8 @@ public class EntityState
     public bool Visible { get; set; } = true;
     public bool IsMouthOpen { get; set; }
     public bool IsGhost { get; set; }
+    public int Facing { get; set; }
+    public bool ScreenShake { get; set; }
 }
 
 public class GameEngine
@@ -38,7 +40,10 @@ public class GameEngine
     private const double FrightenedDuration = 7.0;
     private double _mouthTimer;
     private bool _isMouthOpen;
+    private double _shakeTimer;
     private readonly List<string> _soundEvents = new();
+
+    public bool IsRunning => State == GameState.Playing || State == GameState.Frightened;
 
     public List<string> FlushSoundEvents()
     {
@@ -99,7 +104,10 @@ public class GameEngine
 
     public List<EntityState> Update(double deltaTime)
     {
-        if (State != GameState.Playing && State != GameState.Frightened)
+        if (_shakeTimer > 0)
+            _shakeTimer -= deltaTime;
+
+        if (!IsRunning)
             return GetEntityStates();
 
         if (State == GameState.Frightened)
@@ -213,6 +221,7 @@ public class GameEngine
                 {
                     Pacman.Lives--;
                     EmitSound("death");
+                    _shakeTimer = 0.5;
                     if (Pacman.Lives <= 0)
                         State = GameState.GameOver;
                     else
@@ -265,14 +274,16 @@ public class GameEngine
         _frightenedTimer = 0;
         _mouthTimer = 0;
         _isMouthOpen = false;
+        _shakeTimer = 0;
         State = GameState.Start;
     }
 
     private List<EntityState> GetEntityStates()
     {
+        bool shaking = _shakeTimer > 0;
         var states = new List<EntityState>
         {
-            new() { Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y, Sprite = Pacman.GetSprite(), Visible = true, IsMouthOpen = _isMouthOpen, IsGhost = false }
+            new() { Id = Pacman.Id, X = Pacman.X, Y = Pacman.Y, Sprite = Pacman.GetSprite(), Visible = true, IsMouthOpen = _isMouthOpen, IsGhost = false, Facing = (int)Pacman.CurrentDirection, ScreenShake = shaking }
         };
 
         foreach (var ghost in Ghosts)
@@ -280,7 +291,7 @@ public class GameEngine
             states.Add(new EntityState
             {
                 Id = ghost.Id, X = ghost.X, Y = ghost.Y,
-                Sprite = ghost.GetSprite(), Visible = true, IsGhost = true
+                Sprite = ghost.GetSprite(), Visible = true, IsGhost = true, Facing = 0, ScreenShake = shaking
             });
         }
 

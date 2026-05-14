@@ -5,6 +5,7 @@ window.gameInterop = {
     entities: {},
     audioCtx: null,
     musicInterval: null,
+    shakeTimeout: null,
 
     // ── Init ──────────────────────────────────────────────
     init: function (dotNetRef) {
@@ -22,16 +23,16 @@ window.gameInterop = {
         }.bind(this));
     },
 
-    // ── Keyboard (backup for Blazor @onkeydown) ───────────
+    // ── Keyboard — WASD only, window-level ────────────────
     initKeyboard: function () {
         var self = this;
-        document.addEventListener('keydown', function (e) {
+        window.addEventListener('keydown', function (e) {
             var dir = 0;
             switch (e.key) {
-                case 'ArrowUp':    case 'w': case 'W': dir = 1; break;
-                case 'ArrowDown':  case 's': case 'S': dir = 2; break;
-                case 'ArrowLeft':  case 'a': case 'A': dir = 3; break;
-                case 'ArrowRight': case 'd': case 'D': dir = 4; break;
+                case 'w': case 'W': dir = 1; break; // Up
+                case 's': case 'S': dir = 2; break; // Down
+                case 'a': case 'A': dir = 3; break; // Left
+                case 'd': case 'D': dir = 4; break; // Right
             }
             if (dir !== 0 && self.dotNetRef) {
                 e.preventDefault();
@@ -73,6 +74,7 @@ window.gameInterop = {
             this.animFrameId = null;
         }
         this.stopMusic();
+        this.clearShake();
     },
 
     focusGame: function () {
@@ -89,15 +91,27 @@ window.gameInterop = {
             if (!el) return;
         }
 
+        // Position
         el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px)';
         el.style.display = state.visible ? 'block' : 'none';
 
+        // Sprite
         if (state.sprite && el.src.indexOf(state.sprite) === -1) {
             el.src = state.sprite;
         }
 
-        // Mouth animation for Pacman
+        // Pacman: apply rotation based on facing direction
         if (state.id === 'pacman') {
+            var rotation = 0;
+            switch (state.facing) {
+                case 1: rotation = -90; break;  // Up
+                case 2: rotation = 90;  break;  // Down
+                case 3: rotation = 180; break;  // Left
+                default: rotation = 0;  break;  // Right / None
+            }
+            el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px) rotate(' + rotation + 'deg)';
+
+            // Mouth animation
             if (state.isMouthOpen) {
                 el.classList.add('mouth-open');
                 el.classList.remove('mouth-closed');
@@ -107,12 +121,45 @@ window.gameInterop = {
             }
         }
 
-        // Ghost floating — add class if not already present
+        // Ghost floating class
         if (state.isGhost && !el.classList.contains('ghost-float')) {
             el.classList.add('ghost-float');
         }
+
+        // Screen shake
+        if (state.screenShake) {
+            this.triggerShake();
+        }
     },
 
+    // ── Screen Shake ──────────────────────────────────────
+    triggerShake: function () {
+        var board = document.querySelector('.game-board');
+        if (!board) return;
+
+        // Remove then re-add to restart animation
+        board.classList.remove('screen-shake');
+        void board.offsetWidth; // force reflow
+        board.classList.add('screen-shake');
+
+        if (this.shakeTimeout) clearTimeout(this.shakeTimeout);
+        var self = this;
+        this.shakeTimeout = setTimeout(function () {
+            if (board) board.classList.remove('screen-shake');
+            self.shakeTimeout = null;
+        }, 460);
+    },
+
+    clearShake: function () {
+        if (this.shakeTimeout) {
+            clearTimeout(this.shakeTimeout);
+            this.shakeTimeout = null;
+        }
+        var board = document.querySelector('.game-board');
+        if (board) board.classList.remove('screen-shake');
+    },
+
+    // ── Pellet Updates ────────────────────────────────────
     updatePellets: function (mazeJson) {
         var maze = JSON.parse(mazeJson);
         var cells = document.querySelectorAll('.maze-cell');

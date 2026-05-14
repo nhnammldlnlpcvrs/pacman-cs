@@ -5,8 +5,7 @@
 @implements IDisposable
 @inject IJSRuntime JS
 
-<div class="game-frame" @onkeydown="HandleKeyDown" @onkeydown:preventDefault="true"
-     @onclick="HandleClick" @onclick:stopPropagation="true"
+<div class="game-frame" @onclick="HandleClick" @onclick:stopPropagation="true"
      tabindex="0" autofocus>
     <div class="game-header">
         <div class="hud-item">
@@ -14,7 +13,7 @@
             <span class="hud-value score-val">@(_engine?.Pacman.Score ?? 0)</span>
         </div>
         <div class="hud-item">
-            <span class="hud-label">State</span>
+            <span class="hud-label">Status</span>
             <span class="hud-value state-val">@GetStateText()</span>
         </div>
         <div class="hud-item">
@@ -60,24 +59,29 @@
         {
             <div class="overlay">
                 <div class="overlay-title">PAC-MAN</div>
-                <div class="overlay-subtitle">NEON EDITION</div>
-                <button class="btn-neon" @onclick="StartGame" @onclick:stopPropagation="true">START GAME</button>
+                <div class="overlay-subtitle">8-BIT ARCADE EDITION</div>
+                <button class="btn-arcade" @onclick="StartGame" @onclick:stopPropagation="true">START GAME</button>
+                <div class="overlay-blink">PRESS W-A-S-D OR START BUTTON</div>
+                <div class="controls-hint">
+                    <span>W</span> UP &nbsp; <span>S</span> DOWN<br/>
+                    <span>A</span> LEFT <span>D</span> RIGHT
+                </div>
             </div>
         }
         else if (_engine?.State == GameState.GameOver)
         {
             <div class="overlay game-over">
                 <div class="overlay-title">GAME OVER</div>
-                <div class="final-score">FINAL SCORE: @_engine?.Pacman.Score</div>
-                <button class="btn-neon" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
+                <div class="final-score">SCORE: @_engine?.Pacman.Score</div>
+                <button class="btn-arcade" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
             </div>
         }
         else if (_engine?.State == GameState.Win)
         {
             <div class="overlay win">
                 <div class="overlay-title">YOU WIN!</div>
-                <div class="final-score">FINAL SCORE: @_engine?.Pacman.Score</div>
-                <button class="btn-neon" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
+                <div class="final-score">SCORE: @_engine?.Pacman.Score</div>
+                <button class="btn-arcade" @onclick="RestartGame" @onclick:stopPropagation="true">PLAY AGAIN</button>
             </div>
         }
     </div>
@@ -86,6 +90,7 @@
 @code {
     private GameEngine? _engine;
     private DotNetObjectReference<Index>? _dotNetRef;
+    private GameState _lastState = GameState.Start;
 
     protected override void OnInitialized()
     {
@@ -113,34 +118,27 @@
         foreach (var sound in sounds)
             _ = JS.InvokeVoidAsync("gameInterop.playSound", sound);
 
-        if (_engine.State == GameState.Playing || _engine.State == GameState.Frightened)
+        // Update pellets via JS for immediate visual feedback
+        if (_engine.IsRunning)
         {
             var mazeJson = System.Text.Json.JsonSerializer.Serialize(_engine.GetMaze());
             _ = JS.InvokeVoidAsync("gameInterop.updatePellets", mazeJson);
         }
 
-        StateHasChanged();
-        return states;
-    }
-
-    private void HandleKeyDown(KeyboardEventArgs e)
-    {
-        var dir = e.Key switch
+        // Only re-render Blazor on state transitions — keeps 60fps smooth
+        if (_engine.State != _lastState)
         {
-            "ArrowUp" or "w" or "W" => Direction.Up,
-            "ArrowDown" or "s" or "S" => Direction.Down,
-            "ArrowLeft" or "a" or "A" => Direction.Left,
-            "ArrowRight" or "d" or "D" => Direction.Right,
-            _ => Direction.None
-        };
+            _lastState = _engine.State;
+            StateHasChanged();
+        }
 
-        if (dir != Direction.None)
-            HandleDirection((int)dir);
+        return states;
     }
 
     [JSInvokable]
     public void HandleDirection(int dir)
     {
+        if (dir < 1 || dir > 4) return;
         _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
         _engine?.HandleInput((Direction)dir);
     }
@@ -155,11 +153,13 @@
     {
         _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
         _engine?.Start();
+        _lastState = GameState.Playing;
     }
 
     private void RestartGame()
     {
         _engine?.Restart();
+        _lastState = GameState.Start;
         _ = JS.InvokeVoidAsync("gameInterop.resumeAudio");
     }
 

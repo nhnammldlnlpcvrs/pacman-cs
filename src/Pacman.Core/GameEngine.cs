@@ -38,9 +38,14 @@ public class GameEngine
 
     private double _frightenedTimer;
     private const double FrightenedDuration = 7.0;
+    private double _modeTimer;
+    private bool _isScatterPhase = true;
+    private const double ScatterDuration = 7.0;
+    private const double ChaseDuration = 20.0;
     private double _mouthTimer;
     private bool _isMouthOpen;
     private double _shakeTimer;
+    private double _dyingTimer;
     private readonly List<string> _soundEvents = new();
 
     public bool IsRunning => State == GameState.Playing || State == GameState.Frightened;
@@ -77,6 +82,7 @@ public class GameEngine
         foreach (var ghost in Ghosts)
             ghost.SetEngine(this);
 
+        _modeTimer = ScatterDuration;
         CountPellets();
     }
 
@@ -137,11 +143,11 @@ public class GameEngine
 
         EatPellets();
 
+        if (State == GameState.Playing)
+            UpdateModeTimer(deltaTime);
+
         foreach (var ghost in Ghosts)
         {
-            if (ghost.Mode != GhostMode.Frightened && ghost.Mode != GhostMode.Eyes)
-                ghost.Mode = GhostMode.Chase;
-
             ghost.TargetGridX = Pacman.GridX;
             ghost.TargetGridY = Pacman.GridY;
             ghost.Update((float)deltaTime);
@@ -178,6 +184,24 @@ public class GameEngine
             Pacman.Score += 50;
             EmitSound("powerup");
             ActivatePowerPellet();
+        }
+    }
+
+    private void UpdateModeTimer(double deltaTime)
+    {
+        _modeTimer -= deltaTime;
+        if (_modeTimer > 0) return;
+
+        _isScatterPhase = !_isScatterPhase;
+        _modeTimer = _isScatterPhase ? ScatterDuration : ChaseDuration;
+
+        foreach (var ghost in Ghosts)
+        {
+            if (ghost.Mode == GhostMode.Frightened || ghost.Mode == GhostMode.Eyes)
+                continue;
+
+            ghost.Mode = _isScatterPhase ? GhostMode.Scatter : GhostMode.Chase;
+            ghost.CurrentDirection = ghost.CurrentDirection.Opposite();
         }
     }
 
@@ -252,6 +276,8 @@ public class GameEngine
         Ghosts[2].SetPosition(11, 12); Ghosts[2].Mode = GhostMode.Scatter;
         Ghosts[3].SetPosition(17, 12); Ghosts[3].Mode = GhostMode.Scatter;
         GhostCombo = 0;
+        _modeTimer = ScatterDuration;
+        _isScatterPhase = true;
     }
 
     public int[,] GetMaze() => _mazeCopy;
@@ -273,9 +299,12 @@ public class GameEngine
 
         GhostCombo = 0;
         _frightenedTimer = 0;
+        _modeTimer = ScatterDuration;
+        _isScatterPhase = true;
         _mouthTimer = 0;
         _isMouthOpen = false;
         _shakeTimer = 0;
+        _dyingTimer = 0;
         State = GameState.Start;
     }
 

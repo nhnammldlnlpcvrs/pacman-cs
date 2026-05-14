@@ -44,16 +44,16 @@
             }
         </div>
 
-        <img id="pacman" class="entity" src="imgs/pacmanRight.png"
-             style="transform: translate(@(14 * 24)px, @(23 * 24)px);" />
-        <img id="ghost-red" class="entity ghost-float" src="imgs/redGhost.png"
-             style="transform: translate(@(12 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-pink" class="entity ghost-float" src="imgs/pinkGhost.png"
-             style="transform: translate(@(14 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-blue" class="entity ghost-float" src="imgs/blueGhost.png"
-             style="transform: translate(@(11 * 24)px, @(12 * 24)px);" />
-        <img id="ghost-orange" class="entity ghost-float" src="imgs/orangeGhost.png"
-             style="transform: translate(@(17 * 24)px, @(12 * 24)px);" />
+        <div id="pacman" class="entity pacman-sprite"
+             style="transform: translate(@(14 * 24)px, @(23 * 24)px);"></div>
+        <div id="ghost-red" class="entity ghost-sprite ghost-red-sprite ghost-float"
+             style="transform: translate(@(12 * 24)px, @(12 * 24)px);"></div>
+        <div id="ghost-pink" class="entity ghost-sprite ghost-pink-sprite ghost-float"
+             style="transform: translate(@(14 * 24)px, @(12 * 24)px);"></div>
+        <div id="ghost-blue" class="entity ghost-sprite ghost-blue-sprite ghost-float"
+             style="transform: translate(@(11 * 24)px, @(12 * 24)px);"></div>
+        <div id="ghost-orange" class="entity ghost-sprite ghost-orange-sprite ghost-float"
+             style="transform: translate(@(17 * 24)px, @(12 * 24)px);"></div>
 
         @if (_engine?.State == GameState.Start)
         {

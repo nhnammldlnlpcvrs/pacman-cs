@@ -167,22 +167,63 @@ body {
     top: 0; left: 0;
     width: var(--tile-size);
     height: var(--tile-size);
-    image-rendering: pixelated;
     will-change: transform;
     z-index: 10;
     pointer-events: none;
 }
 
-#pacman {
+/* Pacman — pure CSS yellow circle */
+.pacman-sprite {
+    background: #ffff00;
+    border-radius: 50%;
     z-index: 20;
-    filter: drop-shadow(0 0 6px rgba(255,230,0,0.6));
+    filter: drop-shadow(0 0 6px rgba(255, 230, 0, 0.7));
 }
 
-/* Ghost glow by color */
-#ghost-red    { filter: drop-shadow(0 0 4px rgba(255,0,0,0.5)); }
-#ghost-pink   { filter: drop-shadow(0 0 4px rgba(255,100,200,0.5)); }
-#ghost-blue   { filter: drop-shadow(0 0 4px rgba(0,200,255,0.5)); }
-#ghost-orange { filter: drop-shadow(0 0 4px rgba(255,150,0,0.5)); }
+.pacman-sprite.mouth-open {
+    clip-path: polygon(50% 50%, 100% 8%, 100% 92%);
+}
+
+.pacman-sprite.mouth-closed {
+    clip-path: polygon(50% 50%, 100% 47%, 100% 53%);
+}
+
+/* Ghost base shape — classic Pacman ghost silhouette */
+.ghost-sprite {
+    clip-path: polygon(
+        2% 100%, 0% 10%, 0% 0%, 100% 0%, 100% 10%, 98% 100%,
+        88% 82%, 80% 100%, 70% 84%, 62% 100%,
+        52% 82%, 45% 100%, 35% 84%, 28% 100%,
+        18% 82%, 10% 100%
+    );
+}
+
+.ghost-red-sprite    { background: #ff0000; filter: drop-shadow(0 0 5px rgba(255,0,0,0.6)); }
+.ghost-pink-sprite   { background: #ffb8ff; filter: drop-shadow(0 0 5px rgba(255,150,200,0.6)); }
+.ghost-blue-sprite   { background: #00ffff; filter: drop-shadow(0 0 5px rgba(0,200,255,0.6)); }
+.ghost-orange-sprite { background: #ffb852; filter: drop-shadow(0 0 5px rgba(255,150,0,0.6)); }
+
+/* Frightened ghost */
+.ghost-sprite.frightened {
+    background: #2121de !important;
+    filter: drop-shadow(0 0 5px rgba(33,33,255,0.6));
+}
+
+/* Ghost eyes */
+.ghost-sprite::after {
+    content: '';
+    position: absolute;
+    width: 5px; height: 7px;
+    background: #fff;
+    border-radius: 50%;
+    top: 7px;
+    left: 6px;
+    box-shadow: 9px 0 0 #fff, 0 3px 0 #00f, 9px 3px 0 #00f;
+}
+
+.ghost-sprite.frightened::after {
+    box-shadow: 9px 0 0 #fff, 0 3px 0 #fff, 9px 3px 0 #fff;
+}
 
 /* Ghost floating */
 .entity.ghost-float {
@@ -193,10 +234,6 @@ body {
     from { margin-top: -2px; }
     to   { margin-top: 2px; }
 }
-
-/* Pacman mouth — toggled by JS */
-.entity.mouth-open  { clip-path: polygon(50% 50%, 100% 15%, 100% 85%); }
-.entity.mouth-closed { clip-path: circle(50%); }
 
 /* ── Screen Shake ─────────────────────────────────── */
 .screen-shake {

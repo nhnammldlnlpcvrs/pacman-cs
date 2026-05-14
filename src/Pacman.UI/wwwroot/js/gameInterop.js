@@ -92,16 +92,18 @@ window.gameInterop = {
             if (!el) return;
         }
 
-        // Position
-        el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px)';
         el.style.display = state.visible ? 'block' : 'none';
 
-        // Sprite
-        if (state.sprite && el.src.indexOf(state.sprite) === -1) {
-            el.src = state.sprite;
+        // Ghost frightened mode
+        if (state.isGhost) {
+            if (state.sprite && state.sprite.indexOf('scared') !== -1) {
+                el.classList.add('frightened');
+            } else {
+                el.classList.remove('frightened');
+            }
         }
 
-        // Pacman: apply rotation based on facing direction
+        // Pacman: apply rotation + mouth
         if (state.id === 'pacman') {
             var rotation = 0;
             switch (state.facing) {
@@ -112,7 +114,6 @@ window.gameInterop = {
             }
             el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px) rotate(' + rotation + 'deg)';
 
-            // Mouth animation
             if (state.isMouthOpen) {
                 el.classList.add('mouth-open');
                 el.classList.remove('mouth-closed');
@@ -120,14 +121,10 @@ window.gameInterop = {
                 el.classList.add('mouth-closed');
                 el.classList.remove('mouth-open');
             }
+        } else {
+            el.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px)';
         }
 
-        // Ghost floating class
-        if (state.isGhost && !el.classList.contains('ghost-float')) {
-            el.classList.add('ghost-float');
-        }
-
-        // Screen shake
         if (state.screenShake) {
             this.triggerShake();
         }

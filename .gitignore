@@ -1,0 +1,38 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.vs/
+*.DotSettings
+
+## Blazor WASM output
+output/
+publish/
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+## OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## Vercel
+.vercel/
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+*.snupkg
+
+## Build artifacts
+_ReSharper.Caches/
+*.rsuser
+.claude/
+.vercel

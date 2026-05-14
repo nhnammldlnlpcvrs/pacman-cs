@@ -11,7 +11,7 @@ public abstract class Entity
     public Direction CurrentDirection { get; set; } = Direction.None;
     public bool Visible { get; set; } = true;
 
-    public int GridX => (int)Math.Round(X / MazeData.TileSize);
+    public int GridX => (int)Math.Round(X / MazeData.TileSize, MidpointRounding.AwayFromZero);
     public int GridY => (int)Math.Round(Y / MazeData.TileSize);
 
     public bool IsAtTileCenter
@@ -38,7 +38,7 @@ public abstract class Entity
         float newX = X + dx * Speed * deltaTime;
         float newY = Y + dy * Speed * deltaTime;
 
-        int targetGx = (int)Math.Round(newX / MazeData.TileSize);
+        int targetGx = (int)Math.Round(newX / MazeData.TileSize, MidpointRounding.AwayFromZero);
         int targetGy = (int)Math.Round(newY / MazeData.TileSize);
 
         if (IsCellWalkable(targetGx, targetGy))

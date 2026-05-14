@@ -105,27 +105,27 @@ public class Ghost : Entity
         _ => _engine?.Pacman.GridY ?? TargetGridY
     };
 
-    // Pinky: targets 4 tiles ahead of Pacman
+    // Pinky: targets 4 tiles ahead of Pacman (clamped to maze)
     private int GetPinkyTargetX()
     {
         var (dx, _) = _engine!.Pacman.CurrentDirection.Delta();
-        return _engine.Pacman.GridX + dx * 4;
+        return ClampX(_engine.Pacman.GridX + dx * 4);
     }
 
     private int GetPinkyTargetY()
     {
         var (_, dy) = _engine!.Pacman.CurrentDirection.Delta();
-        return _engine.Pacman.GridY + dy * 4;
+        return ClampY(_engine.Pacman.GridY + dy * 4);
     }
 
-    // Inky: 2 * (pacman + 2 ahead) - Blinky position
+    // Inky: 2 * (pacman + 2 ahead) - Blinky position (clamped to maze)
     private int GetInkyTargetX()
     {
         var p = _engine!.Pacman;
         var blinky = _engine.Ghosts[0];
         var (dx, _) = p.CurrentDirection.Delta();
         int pivotX = p.GridX + dx * 2;
-        return pivotX + (pivotX - blinky.GridX);
+        return ClampX(pivotX + (pivotX - blinky.GridX));
     }
 
     private int GetInkyTargetY()
@@ -134,7 +134,7 @@ public class Ghost : Entity
         var blinky = _engine.Ghosts[0];
         var (_, dy) = p.CurrentDirection.Delta();
         int pivotY = p.GridY + dy * 2;
-        return pivotY + (pivotY - blinky.GridY);
+        return ClampY(pivotY + (pivotY - blinky.GridY));
     }
 
     // Clyde: chase if distance > 8 tiles, else scatter
@@ -155,6 +155,9 @@ public class Ghost : Entity
             (GridY - p.GridY) * (GridY - p.GridY));
         return dist > 8 ? p.GridY : ScatterTargetY;
     }
+
+    private static int ClampX(int x) => Math.Clamp(x, 0, MazeData.Width - 1);
+    private static int ClampY(int y) => Math.Clamp(y, 0, MazeData.Height - 1);
 
     protected override bool IsCellWalkable(int gridX, int gridY)
         => MazeData.IsWalkable(gridX, gridY, true);

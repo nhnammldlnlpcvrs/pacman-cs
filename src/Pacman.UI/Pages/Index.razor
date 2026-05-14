@@ -131,7 +131,7 @@
             _lastState = _engine.State;
             if (_engine.State == GameState.Playing)
                 _ = JS.InvokeVoidAsync("gameInterop.playMusic");
-            else if (_engine.State is GameState.GameOver or GameState.Win)
+            else if (_engine.State is GameState.Dying or GameState.GameOver or GameState.Win)
                 _ = JS.InvokeVoidAsync("gameInterop.stopMusic");
             StateHasChanged();
         }
